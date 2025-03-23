@@ -1,0 +1,12 @@
+[package]
+name = "wave-sim-3d"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+compute = { git = "https://github.com/connorslade/compute", features = [
+    "interactive",
+] }
+
+anyhow = "1.0.95"
+encase = { version = "0.10.0", features = ["nalgebra"] }
