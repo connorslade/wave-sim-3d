@@ -14,9 +14,8 @@ use simulation::{Config, Simulation};
 mod app;
 mod camera;
 mod marching_cubes;
-mod misc;
-mod sci_dragger;
 mod simulation;
+mod ui;
 
 fn main() -> Result<()> {
     let gpu = Gpu::builder()
@@ -33,7 +32,7 @@ fn main() -> Result<()> {
         config,
     };
 
-    (0..50).for_each(|_| simulation.tick());
+    (0..100).for_each(|_| simulation.tick());
     let (vertices, indices) = simulation.triangluate(0.0);
 
     let index = gpu.create_index(&indices)?;

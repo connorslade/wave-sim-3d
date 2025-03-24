@@ -3,6 +3,8 @@ use compute::export::{
     nalgebra::Vector3,
 };
 
+pub mod sci_dragger;
+
 pub fn dragger<Num: Numeric>(
     ui: &mut Ui,
     label: &str,

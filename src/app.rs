@@ -12,9 +12,8 @@ use encase::ShaderType;
 
 use crate::{
     camera::Camera,
-    misc::{dragger, vec3_dragger},
-    sci_dragger::SciDragValue,
     simulation::Simulation,
+    ui::{dragger, sci_dragger::SciDragValue, vec3_dragger},
 };
 
 pub struct App {
