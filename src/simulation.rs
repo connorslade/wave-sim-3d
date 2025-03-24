@@ -1,9 +1,13 @@
-use compute::export::nalgebra::Vector3;
+use compute::{export::nalgebra::Vector3, pipeline::render::Vertex};
 use itertools::Itertools;
+
+use crate::marching_cubes;
 
 pub struct Simulation {
     pub states: Vec<Vec<f32>>,
     pub step: usize,
+
+    pub config: Config,
 }
 
 pub struct Config {
@@ -19,8 +23,8 @@ impl Simulation {
     /// --- = c² ( --- + --- + --- )
     /// ∂t²        ∂x²   ∂y²   ∂z²
     /// ```
-    pub fn tick(&mut self, config: &Config) {
-        let size = config.size;
+    pub fn tick(&mut self) {
+        let size = self.config.size;
 
         let index = |x: usize, y: usize, z: usize| {
             (x < size.x && y < size.y && z < size.z).then(|| x * size.y * size.z + y * size.z + z)
@@ -46,7 +50,8 @@ impl Simulation {
             let dz = get(x, y, z + 1) + get(x, y, z - 1) - 2.0 * get(x, y, z);
             let ds = dx + dy + dz;
 
-            let mut next = config.c.powi(2) * ds * (config.dt / config.ds) - get_last(x, y, z)
+            let mut next = self.config.c.powi(2) * ds * (self.config.dt / self.config.ds)
+                - get_last(x, y, z)
                 + 2.0 * get(x, y, z);
 
             let center_dist = (size.map(|x| x as f32 / 2.0)
@@ -57,6 +62,10 @@ impl Simulation {
             self.step += 1;
             self.states[self.step % 3][index(x, y, z).unwrap()] = next;
         }
+    }
+
+    pub fn triangluate(&self, iso_level: f32) -> (Vec<Vertex>, Vec<u32>) {
+        marching_cubes(&self.states[self.step % 3], self.config.size, iso_level)
     }
 }
 

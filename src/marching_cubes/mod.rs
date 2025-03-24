@@ -1,4 +1,5 @@
-/// Implementation of <https://paulbourke.net/geometry/polygonise>.
+//! Implementation of <https://paulbourke.net/geometry/polygonise>.
+
 use compute::{
     export::nalgebra::{Vector2, Vector3},
     pipeline::render::Vertex,

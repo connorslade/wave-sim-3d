@@ -1,5 +1,5 @@
-/// Marching cubes look up tables.
-/// Modified from <https://paulbourke.net/geometry/polygonise>.
+//! Marching cubes look up tables.
+//! Modified from <https://paulbourke.net/geometry/polygonise>.
 
 #[rustfmt::skip]
 pub const TRIANGULATION_TABLE: [&[u8]; 256] = [
