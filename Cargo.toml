@@ -4,10 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# compute = { git = "https://github.com/connorslade/compute", features = [
-#     "interactive",
-# ] }
-compute = { path = "../compute", features = [
+# compute = { path = "../compute", features = [ "interactive" ] }
+compute = { git = "https://github.com/connorslade/compute", features = [
     "interactive",
 ] }
 

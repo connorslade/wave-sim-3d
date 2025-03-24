@@ -1,7 +1,7 @@
 use anyhow::Result;
 use compute::{
     export::{
-        wgpu::{include_wgsl, Limits, ShaderStages},
+        wgpu::{include_wgsl, CompareFunction, Limits, ShaderStages},
         winit::window::WindowAttributes,
     },
     gpu::Gpu,
@@ -41,6 +41,7 @@ fn main() -> Result<()> {
     let uniforms = gpu.create_uniform(&Uniform::default())?;
     let render = gpu
         .render_pipeline(include_wgsl!("render.wgsl"))
+        .depth_compare(CompareFunction::Always)
         .bind(&uniforms, ShaderStages::VERTEX_FRAGMENT)
         .finish();
 
