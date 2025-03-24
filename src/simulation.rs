@@ -58,8 +58,14 @@ impl Simulation {
             let ds = dx + dy + dz - 6.0 * get(curr, pos);
             let mut u = ds * c - prev[idx] + 2.0 * get(curr, pos);
 
-            let center_dist = (size.map(|x| x as f32 / 2.0) - pos.map(|x| x as f32)).magnitude();
+            let center_dist = (Vector3::new(size.x / 4, size.y / 2, size.z / 2) - pos)
+                .map(|x| x as f32)
+                .magnitude();
             u += (-center_dist).exp() * oscilator;
+
+            if pos.x == 30 && (pos.y > 55 || pos.y < 45 || pos.z > 55 || pos.z < 45) {
+                u = 0.0;
+            }
 
             next[idx] = u;
         }

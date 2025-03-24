@@ -1,8 +1,8 @@
 use compute::{
     bindings::{IndexBuffer, UniformBuffer, VertexBuffer},
     export::{
-        egui::{Context, Slider, Window},
-        nalgebra::{Matrix4, Point3, Vector3},
+        egui::{Context, Key, Slider, Window},
+        nalgebra::{Matrix4, Vector3},
         wgpu::RenderPass,
     },
     interactive::{GraphicsCtx, Interactive},
@@ -62,20 +62,23 @@ impl Interactive for App {
 
                 ui.add_space(8.0);
                 ui.horizontal(|ui| {
+                    let t_down = ui.input(|input| input.key_down(Key::T));
+
                     let remesh = ui.button("Remesh").clicked();
-                    let tick = ui.button("Tick").clicked();
+                    let tick = ui.button("Tick").clicked() || t_down;
                     let reset = ui.button("Reset").clicked();
 
                     reset.then(|| self.simulation.reset());
                     tick.then(|| self.simulation.tick());
                     if tick || remesh || reset {
                         let (vertices, indices) = self.simulation.triangluate(self.iso_level);
+                        self.indicies = indices.len() as u32;
                         self.vertex.upload(&vertices).unwrap();
                         self.index.upload(&indices).unwrap();
-                        self.indicies = indices.len() as u32;
                     }
                 });
 
+                ui.add_space(8.0);
                 ui.heading("Rendering");
                 ui.horizontal(|ui| {
                     SciDragValue::new(&mut self.iso_level).show(ui);
@@ -94,8 +97,7 @@ impl Interactive for App {
                     ui.label("Edge Falloff");
                 });
 
-                ui.separator();
-
+                ui.add_space(8.0);
                 ui.collapsing("Camera", |ui| {
                     ui.horizontal(|ui| {
                         ui.label("Position");
@@ -115,28 +117,16 @@ impl Interactive for App {
         let window = gcx.window.inner_size().cast::<f32>();
         let aspect = window.width / window.height;
 
-        let facing = self.camera.facing();
         self.uniform
             .upload(&Uniform {
-                view_projection: Matrix4::new_perspective(
-                    aspect,
-                    self.camera.fov,
-                    self.camera.near,
-                    self.camera.far,
-                ) * Matrix4::look_at_rh(
-                    &Point3::from(self.camera.position),
-                    &Point3::from(self.camera.position + facing),
-                    &Vector3::new(0.0, 1.0, 0.0),
-                ),
-                camera_dir: facing,
+                view_projection: self.camera.view_projection(aspect),
+                camera_dir: self.camera.facing(),
                 render: self.render_config,
             })
             .unwrap();
 
-        if self.indicies > 0 {
-            self.render
-                .draw(render_pass, &self.index, &self.vertex, 0..self.indicies);
-        }
+        self.render
+            .draw(render_pass, &self.index, &self.vertex, 0..self.indicies);
     }
 }
 
