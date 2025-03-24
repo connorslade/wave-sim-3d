@@ -28,17 +28,14 @@ fn main() -> Result<()> {
         .build()?;
 
     let config = Config::default();
-    let mut simulation = Simulation {
+    let simulation = Simulation {
         states: vec![vec![0.0; config.size.iter().product()]; 3],
         step: 0,
         config,
     };
 
-    (0..100).for_each(|_| simulation.tick());
-    let (vertices, indices) = simulation.triangluate(0.0);
-
-    let index = gpu.create_index(&indices)?;
-    let vertex = gpu.create_vertex(&vertices)?;
+    let index = gpu.create_index(&[])?;
+    let vertex = gpu.create_vertex(&[])?;
     let uniforms = gpu.create_uniform(&Uniform::default())?;
     let render = gpu
         .render_pipeline(include_wgsl!("render.wgsl"))
@@ -55,7 +52,7 @@ fn main() -> Result<()> {
             vertex,
             uniform: uniforms,
 
-            indicies: indices.len() as u32,
+            indicies: 0,
             simulation,
             camera: Camera::default(),
             iso_level: 1e-4,

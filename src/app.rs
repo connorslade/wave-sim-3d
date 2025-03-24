@@ -124,8 +124,10 @@ impl Interactive for App {
             })
             .unwrap();
 
-        self.render
-            .draw(render_pass, &self.index, &self.vertex, 0..self.indicies);
+        if self.indicies > 0 {
+            self.render
+                .draw(render_pass, &self.index, &self.vertex, 0..self.indicies);
+        }
     }
 }
 
