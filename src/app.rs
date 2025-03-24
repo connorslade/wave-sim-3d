@@ -1,7 +1,7 @@
 use compute::{
     bindings::{IndexBuffer, UniformBuffer, VertexBuffer},
     export::{
-        egui::{Context, Window},
+        egui::{Context, Slider, Window},
         nalgebra::{Matrix4, Point3, Vector3},
         wgpu::RenderPass,
     },
@@ -27,12 +27,21 @@ pub struct App {
     pub simulation: Simulation,
     pub camera: Camera,
     pub iso_level: f32,
+    pub render_config: RenderConfig,
+}
+
+#[derive(ShaderType, Clone, Copy)]
+pub struct RenderConfig {
+    pub ambiant: f32,
+    pub intensity: f32,
+    pub edge_falloff: f32,
 }
 
 #[derive(ShaderType, Default)]
 pub struct Uniform {
     view_projection: Matrix4<f32>,
     camera_dir: Vector3<f32>,
+    render: RenderConfig,
 }
 
 impl Interactive for App {
@@ -40,8 +49,10 @@ impl Interactive for App {
         self.camera.update(ctx);
 
         Window::new("Wave Simulator 3D")
-            .max_width(0.0)
+            .default_width(0.0)
             .show(ctx, |ui| {
+                ui.heading("Triangulation");
+
                 ui.horizontal(|ui| {
                     SciDragValue::new(&mut self.iso_level).show(ui);
                     ui.label("Iso Level");
@@ -53,6 +64,20 @@ impl Interactive for App {
                     self.index.upload(&indices).unwrap();
                     self.indicies = indices.len() as u32;
                 }
+
+                ui.heading("Rendering");
+                ui.horizontal(|ui| {
+                    ui.add(Slider::new(&mut self.render_config.ambiant, 0.0..=1.0));
+                    ui.label("Ambiant");
+                });
+                ui.horizontal(|ui| {
+                    ui.add(Slider::new(&mut self.render_config.intensity, 0.0..=1.0));
+                    ui.label("intensity");
+                });
+                ui.horizontal(|ui| {
+                    ui.add(Slider::new(&mut self.render_config.edge_falloff, 0.0..=1.0));
+                    ui.label("Edge Falloff");
+                });
 
                 ui.separator();
 
@@ -89,10 +114,21 @@ impl Interactive for App {
                     &Vector3::new(0.0, 1.0, 0.0),
                 ),
                 camera_dir: facing,
+                render: self.render_config,
             })
             .unwrap();
 
         self.render
             .draw(render_pass, &self.index, &self.vertex, 0..self.indicies);
+    }
+}
+
+impl Default for RenderConfig {
+    fn default() -> Self {
+        Self {
+            ambiant: 0.1,
+            intensity: 0.9,
+            edge_falloff: 0.1,
+        }
     }
 }

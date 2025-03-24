@@ -7,7 +7,7 @@ use compute::{
     gpu::Gpu,
 };
 
-use app::{App, Uniform};
+use app::{App, RenderConfig, Uniform};
 use camera::Camera;
 use marching_cubes::marching_cubes;
 use simulation::{Config, Simulation};
@@ -56,6 +56,7 @@ fn main() -> Result<()> {
             simulation,
             camera: Camera::default(),
             iso_level: 1e-4,
+            render_config: RenderConfig::default(),
         },
     )
     .run()?;

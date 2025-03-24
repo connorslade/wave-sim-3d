@@ -5,7 +5,11 @@ struct VertexOutput {
 
 struct Uniform {
     view_projection: mat4x4f,
-    camera_dir: vec3f
+    camera_dir: vec3f,
+
+    ambiant: f32,
+    intensity: f32,
+    edge_falloff: f32
 }
 
 @group(0) @binding(0) var<uniform> ctx: Uniform;
@@ -24,12 +28,8 @@ fn frag(in: VertexOutput) -> @location(0) vec4f {
     let dx = dpdx(in.world_position);
     let normal = normalize(cross(dy, dx));
 
-    return vec4(abs(normal), 1.0);
+    let opac = abs(dot(normal, ctx.camera_dir));
 
-    // let diffuse = max(dot(normal, ctx.camera_dir), 0.0);
-    // let reflect_dir = reflect(-ctx.camera_dir, normal);
-    // let specular = pow(max(dot(ctx.camera_dir, reflect_dir), 0.0), 32.0);
 
-    // let intensity = (diffuse + specular + 0.1);
-    // return vec4(vec3(intensity) * vec3(119.0 / 255.0, 99.0 / 255.0, 238.0 / 255.0), 1.0);
+    return vec4(ctx.ambiant + ctx.intensity * (1.0 - pow(opac, ctx.edge_falloff)));
 }
