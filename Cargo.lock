@@ -315,7 +315,7 @@ dependencies = [
 [[package]]
 name = "compute"
 version = "0.1.0"
-source = "git+https://github.com/connorslade/compute#6bfb699fe2d76918cdc22a5a3b97ede823a82448"
+source = "git+https://github.com/connorslade/compute#0784cc9ffc8ded079939bd30d53ef713e79f930b"
 dependencies = [
  "anyhow",
  "bytemuck",
@@ -535,6 +535,12 @@ dependencies = [
  "webbrowser",
  "winit",
 ]
+
+[[package]]
+name = "either"
+version = "1.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
 
 [[package]]
 name = "emath"
@@ -984,6 +990,15 @@ checksum = "3954d50fe15b02142bf25d3b8bdadb634ec3948f103d04ffe3031bc8fe9d7058"
 dependencies = [
  "equivalent",
  "hashbrown",
+]
+
+[[package]]
+name = "itertools"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
+dependencies = [
+ "either",
 ]
 
 [[package]]
@@ -2337,6 +2352,7 @@ dependencies = [
  "anyhow",
  "compute",
  "encase",
+ "itertools",
 ]
 
 [[package]]

@@ -21,7 +21,7 @@ fn vert(
 fn frag(in: VertexOutput) -> @location(0) vec4f {
     let dy = dpdy(in.world_position);
     let dx = dpdx(in.world_position);
-    let normal = normalize(cross(dy, dx));
+    let normal = normalize(abs(cross(dy, dx)));
 
     return vec4(normal, 1.0);
 }

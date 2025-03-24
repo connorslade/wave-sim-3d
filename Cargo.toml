@@ -10,3 +10,4 @@ compute = { git = "https://github.com/connorslade/compute", features = [
 
 anyhow = "1.0.95"
 encase = { version = "0.10.0", features = ["nalgebra"] }
+itertools = "0.14.0"
