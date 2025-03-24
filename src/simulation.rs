@@ -65,8 +65,8 @@ impl Default for Config {
         Config {
             size: Vector3::repeat(100),
             c: 0.5,
-            ds: 0.1 * 0.1 * 0.1,
-            dt: 0.001,
+            ds: 0.001,
+            dt: 0.0001,
         }
     }
 }
