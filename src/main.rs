@@ -6,7 +6,7 @@ use compute::{
     export::{
         egui::{Context, Window},
         nalgebra::{Matrix4, Point3, Vector3},
-        wgpu::{include_wgsl, RenderPass, ShaderStages},
+        wgpu::{include_wgsl, Limits, RenderPass, ShaderStages},
         winit::window::WindowAttributes,
     },
     gpu::Gpu,
@@ -37,6 +37,7 @@ struct App {
 #[derive(ShaderType, Default)]
 struct Uniform {
     view_projection: Matrix4<f32>,
+    camera_dir: Vector3<f32>,
 }
 
 struct Camera {
@@ -60,7 +61,12 @@ impl Default for Camera {
 }
 
 fn main() -> Result<()> {
-    let gpu = Gpu::new()?;
+    let gpu = Gpu::builder()
+        .with_limits(Limits {
+            max_buffer_size: 256 << 21,
+            ..Default::default()
+        })
+        .build()?;
 
     let config = Config::default();
     let mut simulation = Simulation {
@@ -68,19 +74,16 @@ fn main() -> Result<()> {
         step: 0,
     };
 
-    let size = config.size;
-    let inner_size = 20;
-    let offset = (size[0] - inner_size) / 2;
-
-    for x in offset..offset + inner_size {
-        for y in offset..offset + inner_size {
-            for z in offset..offset + inner_size {
-                simulation.states[0][x * size[1] * size[2] + y * size[2] + z] = 1.0;
-            }
-        }
+    for i in 0..10 {
+        println!("{}/100", i + 1);
+        // todo: move config into simulation
+        simulation.tick(&config);
     }
 
-    let (vertices, indices) = marching_cubes(&simulation.states[simulation.step], config.size, 0.5);
+    // println!("{:?}", simulation.states[simulation.step % 3]);
+
+    let (vertices, indices) =
+        marching_cubes(&simulation.states[simulation.step % 3], config.size, 0.0);
 
     let index = gpu.create_index(&indices)?;
     let vertex = gpu.create_vertex(&vertices)?;
@@ -144,6 +147,7 @@ impl Interactive for App {
                     &Point3::from(self.camera.target),
                     &Vector3::new(0.0, 1.0, 0.0),
                 ),
+                camera_dir: (self.camera.target - self.camera.position).normalize(),
             })
             .unwrap();
 
