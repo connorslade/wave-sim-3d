@@ -4,6 +4,7 @@ use compute::{
     pipeline::render::Vertex,
 };
 use itertools::Itertools;
+use rayon::iter::{ParallelBridge, ParallelIterator};
 use table::{EDGE_TABLE, TRIANGULATION_TABLE};
 
 mod table;
@@ -31,53 +32,48 @@ pub fn marching_cubes(
     size: Vector3<usize>,
     iso_level: f32,
 ) -> (Vec<Vertex>, Vec<u32>) {
-    let (mut vertices, mut indices) = (Vec::new(), Vec::new());
-
-    for ((x, y), z) in (0..size.x - 1)
+    let vertices = (0..size.x - 1)
         .cartesian_product(0..size.y - 1)
         .cartesian_product(0..size.z - 1)
-    {
-        let mut grid = [(Vector3::zeros(), 0.0); 8];
-        let mut cube_index = 0;
+        .par_bridge()
+        .flat_map(|((x, y), z)| {
+            let mut grid = [(Vector3::zeros(), 0.0); 8];
+            let mut cube_index = 0;
 
-        for (i, offset) in GRID_POINTS.iter().enumerate() {
-            let pos = Vector3::new(x, y, z) + offset;
+            for (i, offset) in GRID_POINTS.iter().enumerate() {
+                let pos = Vector3::new(x, y, z) + offset;
 
-            let index = pos.x * size.y * size.z + pos.y * size.z + pos.z;
-            let value = scalar_field[index];
+                let index = pos.x * size.y * size.z + pos.y * size.z + pos.z;
+                let value = scalar_field[index];
 
-            grid[i] = (pos.map(|x| x as f32), value);
-            cube_index |= ((value < iso_level) as usize) << i;
-        }
-
-        let edge = EDGE_TABLE[cube_index];
-        let mut vertlist = [Vector3::zeros(); 12];
-        for (i, &(p1, p2)) in EDGE_CONNECTIONS
-            .iter()
-            .enumerate()
-            .filter(|(i, _)| edge & (1 << i) != 0)
-        {
-            vertlist[i] = vertex_interp(iso_level, grid[p1], grid[p2]);
-        }
-
-        let triangles = TRIANGULATION_TABLE[cube_index];
-        for triangle in triangles.chunks(3) {
-            for &vert in triangle {
-                vertices.push(Vertex::new(
-                    vertlist[vert as usize].push(1.0),
-                    Vector2::zeros(),
-                ));
+                grid[i] = (pos.map(|x| x as f32), value);
+                cube_index |= ((value < iso_level) as usize) << i;
             }
 
-            indices.extend_from_slice(&[
-                (vertices.len() - 1) as u32,
-                (vertices.len() - 2) as u32,
-                (vertices.len() - 3) as u32,
-            ]);
-        }
-    }
+            let edge = EDGE_TABLE[cube_index];
+            let mut vertlist = [Vector3::zeros(); 12];
+            for (i, &(p1, p2)) in EDGE_CONNECTIONS
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| edge & (1 << i) != 0)
+            {
+                vertlist[i] = vertex_interp(iso_level, grid[p1], grid[p2]);
+            }
 
-    (vertices, indices)
+            let triangles = TRIANGULATION_TABLE[cube_index];
+            triangles
+                .chunks(3)
+                .flat_map(|triangle| {
+                    triangle.iter().map(|&vert| {
+                        Vertex::new(vertlist[vert as usize].push(1.0), Vector2::zeros())
+                    })
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+
+    let indicies = (0..vertices.len() as u32).collect();
+    (vertices, indicies)
 }
 
 fn vertex_interp(
