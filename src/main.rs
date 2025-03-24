@@ -22,7 +22,7 @@ mod vertex;
 fn main() -> Result<()> {
     let gpu = Gpu::builder()
         .with_limits(Limits {
-            max_buffer_size: 256 << 21,
+            max_buffer_size: 2147483647,
             ..Default::default()
         })
         .build()?;
@@ -34,8 +34,8 @@ fn main() -> Result<()> {
         config,
     };
 
-    let index = gpu.create_index(&[])?;
-    let vertex = gpu.create_vertex(&[])?;
+    let index = gpu.create_index_empty(1_000_000);
+    let vertex = gpu.create_vertex_empty(1_000_000)?;
     let uniforms = gpu.create_uniform(&Uniform::default())?;
     let render = gpu
         .render_pipeline(include_wgsl!("render.wgsl"))
@@ -55,7 +55,7 @@ fn main() -> Result<()> {
             indicies: 0,
             simulation,
             camera: Camera::default(),
-            iso_level: 1e-4,
+            iso_level: 0.5,
             render_config: RenderConfig::default(),
         },
     )

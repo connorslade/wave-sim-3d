@@ -13,7 +13,7 @@ use encase::ShaderType;
 use crate::{
     camera::Camera,
     simulation::Simulation,
-    ui::{dragger, sci_dragger::SciDragValue, vec3_dragger},
+    ui::{dragger, sci_dragger, sci_dragger::SciDragValue, vec3_dragger},
     vertex::Vertex,
 };
 
@@ -45,25 +45,30 @@ pub struct Uniform {
 }
 
 impl Interactive for App {
+    fn init(&mut self, _gcx: GraphicsCtx) {
+        self.camera.position = self.simulation.config.size.map(|x| x as f32) / 2.0;
+    }
+
     fn ui(&mut self, _gcx: GraphicsCtx, ctx: &Context) {
         self.camera.update(ctx);
 
         Window::new("Wave Simulator 3D")
             .default_width(0.0)
             .show(ctx, |ui| {
-                ui.heading("Triangulation");
+                ui.heading("Simulation");
+                sci_dragger(ui, "dx (m)", &mut self.simulation.config.dx);
+                sci_dragger(ui, "dt (s)", &mut self.simulation.config.dt);
+                sci_dragger(ui, "Wave Speed (m/s)", &mut self.simulation.config.v);
 
-                ui.horizontal(|ui| {
-                    SciDragValue::new(&mut self.iso_level).show(ui);
-                    ui.label("Iso Level");
-                });
-
+                ui.add_space(8.0);
                 ui.horizontal(|ui| {
                     let remesh = ui.button("Remesh").clicked();
                     let tick = ui.button("Tick").clicked();
+                    let reset = ui.button("Reset").clicked();
 
+                    reset.then(|| self.simulation.reset());
                     tick.then(|| self.simulation.tick());
-                    if tick || remesh {
+                    if tick || remesh || reset {
                         let (vertices, indices) = self.simulation.triangluate(self.iso_level);
                         self.vertex.upload(&vertices).unwrap();
                         self.index.upload(&indices).unwrap();
@@ -72,6 +77,10 @@ impl Interactive for App {
                 });
 
                 ui.heading("Rendering");
+                ui.horizontal(|ui| {
+                    SciDragValue::new(&mut self.iso_level).show(ui);
+                    ui.label("Iso Level");
+                });
                 ui.horizontal(|ui| {
                     ui.add(Slider::new(&mut self.render_config.ambiant, 0.0..=1.0));
                     ui.label("Ambiant");
