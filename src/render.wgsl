@@ -1,5 +1,6 @@
 struct VertexOutput {
     @builtin(position) pos: vec4f,
+    @location(0) world_position: vec3f
 };
 
 struct Uniform {
@@ -13,10 +14,14 @@ fn vert(
     @location(0) pos: vec4f,
     @location(1) uv: vec2f,
 ) -> VertexOutput {
-    return VertexOutput(ctx.view_projection * pos);
+    return VertexOutput(ctx.view_projection * pos, pos.xyz);
 }
 
 @fragment
 fn frag(in: VertexOutput) -> @location(0) vec4f {
-    return vec4(1.0, 0.0, 0.0, 1.0);
+    let dy = dpdy(in.world_position);
+    let dx = dpdx(in.world_position);
+    let normal = normalize(cross(dy, dx));
+
+    return vec4(normal, 1.0);
 }

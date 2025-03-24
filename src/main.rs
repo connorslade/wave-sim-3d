@@ -4,8 +4,8 @@ use anyhow::Result;
 use compute::{
     bindings::{IndexBuffer, UniformBuffer, VertexBuffer},
     export::{
-        egui::{Context, DragValue, Window},
-        nalgebra::{Matrix4, Point3, Vector2, Vector3, Vector4},
+        egui::{Context, Window},
+        nalgebra::{Matrix4, Point3, Vector3},
         wgpu::{include_wgsl, RenderPass, ShaderStages},
         winit::window::WindowAttributes,
     },
@@ -14,9 +14,11 @@ use compute::{
     pipeline::render::{RenderPipeline, Vertex},
 };
 use encase::ShaderType;
+use marching_cubes::marching_cubes;
 use misc::{dragger, vec3_dragger};
 use simulation::{Config, Simulation};
 
+mod marching_cubes;
 mod misc;
 mod simulation;
 
@@ -29,6 +31,7 @@ struct App {
     simulation: Simulation,
     config: Config,
     camera: Camera,
+    indicies: u32,
 }
 
 #[derive(ShaderType, Default)]
@@ -60,13 +63,27 @@ fn main() -> Result<()> {
     let gpu = Gpu::new()?;
 
     let config = Config::default();
+    let mut simulation = Simulation {
+        states: vec![vec![0.0; config.size.iter().product()]; 3],
+        step: 0,
+    };
 
-    let index = gpu.create_index(&[0, 1, 2])?;
-    let vertex = gpu.create_vertex(&[
-        Vertex::new(Vector4::new(-1.0, -1.0, 0.0, 1.0), Vector2::new(0.0, 0.0)),
-        Vertex::new(Vector4::new(1.0, -1.0, 0.0, 1.0), Vector2::new(1.0, 0.0)),
-        Vertex::new(Vector4::new(0.0, 1.0, 0.0, 1.0), Vector2::new(0.5, 1.0)),
-    ])?;
+    let size = config.size;
+    let inner_size = 20;
+    let offset = (size[0] - inner_size) / 2;
+
+    for x in offset..offset + inner_size {
+        for y in offset..offset + inner_size {
+            for z in offset..offset + inner_size {
+                simulation.states[0][x * size[1] * size[2] + y * size[2] + z] = 1.0;
+            }
+        }
+    }
+
+    let (vertices, indices) = marching_cubes(&simulation.states[simulation.step], config.size, 0.5);
+
+    let index = gpu.create_index(&indices)?;
+    let vertex = gpu.create_vertex(&vertices)?;
     let uniforms = gpu.create_uniform(&Uniform::default())?;
     let render = gpu
         .render_pipeline(include_wgsl!("render.wgsl"))
@@ -81,12 +98,10 @@ fn main() -> Result<()> {
             vertex,
             uniform: uniforms,
 
-            simulation: Simulation {
-                states: vec![vec![0.0; config.size.iter().product()]; 3],
-                step: 0,
-            },
+            simulation,
             config,
             camera: Camera::default(),
+            indicies: indices.len() as u32,
         },
     )
     .run()?;
@@ -120,8 +135,8 @@ impl Interactive for App {
         self.uniform
             .upload(&Uniform {
                 view_projection: Matrix4::new_perspective(
-                    self.camera.fov,
                     aspect,
+                    self.camera.fov,
                     self.camera.near,
                     self.camera.far,
                 ) * Matrix4::look_at_rh(
@@ -133,6 +148,6 @@ impl Interactive for App {
             .unwrap();
 
         self.render
-            .draw(render_pass, &self.index, &self.vertex, 0..3);
+            .draw(render_pass, &self.index, &self.vertex, 0..self.indicies);
     }
 }
