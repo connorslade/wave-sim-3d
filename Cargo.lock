@@ -315,6 +315,7 @@ dependencies = [
 [[package]]
 name = "compute"
 version = "0.1.0"
+source = "git+https://github.com/connorslade/compute#e035334e70ee73ee41535988dffcefadf9b6bc44"
 dependencies = [
  "anyhow",
  "bytemuck",

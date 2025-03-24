@@ -6,7 +6,7 @@ See [@connorslade/wave-sim](https://github.com/connorslade/wave-sim) for the 2d 
 
 ## TODO
 
-- [ ] Interpolate mesh normals
-- [ ] Allow ticking simulation at runtime
+- [x] Interpolate mesh normals
+- [x] Allow ticking simulation at runtime
 - [ ] Offload simulation to compute shader
 - [ ] Triangulation on GPU??

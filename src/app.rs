@@ -58,12 +58,18 @@ impl Interactive for App {
                     ui.label("Iso Level");
                 });
 
-                if ui.button("Remesh").clicked() {
-                    let (vertices, indices) = self.simulation.triangluate(self.iso_level);
-                    self.vertex.upload(&vertices).unwrap();
-                    self.index.upload(&indices).unwrap();
-                    self.indicies = indices.len() as u32;
-                }
+                ui.horizontal(|ui| {
+                    let remesh = ui.button("Remesh").clicked();
+                    let tick = ui.button("Tick").clicked();
+
+                    tick.then(|| self.simulation.tick());
+                    if tick || remesh {
+                        let (vertices, indices) = self.simulation.triangluate(self.iso_level);
+                        self.vertex.upload(&vertices).unwrap();
+                        self.index.upload(&indices).unwrap();
+                        self.indicies = indices.len() as u32;
+                    }
+                });
 
                 ui.heading("Rendering");
                 ui.horizontal(|ui| {
