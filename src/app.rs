@@ -6,7 +6,7 @@ use compute::{
         wgpu::RenderPass,
     },
     interactive::{GraphicsCtx, Interactive},
-    pipeline::render::{RenderPipeline, Vertex},
+    pipeline::render::RenderPipeline,
 };
 use encase::ShaderType;
 
@@ -14,6 +14,7 @@ use crate::{
     camera::Camera,
     simulation::Simulation,
     ui::{dragger, sci_dragger::SciDragValue, vec3_dragger},
+    vertex::Vertex,
 };
 
 pub struct App {

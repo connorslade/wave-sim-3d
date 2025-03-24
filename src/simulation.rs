@@ -1,7 +1,7 @@
-use compute::{export::nalgebra::Vector3, pipeline::render::Vertex};
+use compute::export::nalgebra::Vector3;
 use itertools::Itertools;
 
-use crate::marching_cubes;
+use crate::{marching_cubes, vertex::Vertex};
 
 pub struct Simulation {
     pub states: Vec<Vec<f32>>,

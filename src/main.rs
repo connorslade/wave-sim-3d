@@ -11,11 +11,13 @@ use app::{App, RenderConfig, Uniform};
 use camera::Camera;
 use marching_cubes::marching_cubes;
 use simulation::{Config, Simulation};
+use vertex::VERTEX_BUFFER_LAYOUT;
 mod app;
 mod camera;
 mod marching_cubes;
 mod simulation;
 mod ui;
+mod vertex;
 
 fn main() -> Result<()> {
     let gpu = Gpu::builder()
@@ -40,6 +42,7 @@ fn main() -> Result<()> {
     let uniforms = gpu.create_uniform(&Uniform::default())?;
     let render = gpu
         .render_pipeline(include_wgsl!("render.wgsl"))
+        .vertex_layout(VERTEX_BUFFER_LAYOUT)
         .depth_compare(CompareFunction::Always)
         .bind(&uniforms, ShaderStages::VERTEX_FRAGMENT)
         .finish();

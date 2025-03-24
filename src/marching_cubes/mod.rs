@@ -1,12 +1,13 @@
 //! Implementation of <https://paulbourke.net/geometry/polygonise>.
 
-use compute::{
-    export::nalgebra::{Vector2, Vector3},
-    pipeline::render::Vertex,
-};
+use std::collections::HashMap;
+
+use compute::export::nalgebra::Vector3;
 use itertools::Itertools;
-use rayon::iter::{ParallelBridge, ParallelIterator};
+use ordered_float::OrderedFloat;
 use table::{EDGE_TABLE, TRIANGULATION_TABLE};
+
+use crate::vertex::Vertex;
 
 mod table;
 
@@ -33,48 +34,67 @@ pub fn marching_cubes(
     size: Vector3<usize>,
     iso_level: f32,
 ) -> (Vec<Vertex>, Vec<u32>) {
-    let vertices = (0..size.x - 1)
+    let mut vertex_lookup = HashMap::<Vector3<OrderedFloat<f32>>, u32>::new();
+    let mut vertices = Vec::<Vertex>::new();
+    let mut indices = Vec::new();
+
+    for ((x, y), z) in (0..size.x - 1)
         .cartesian_product(0..size.y - 1)
         .cartesian_product(0..size.z - 1)
-        .par_bridge()
-        .flat_map(|((x, y), z)| {
-            let mut grid = [(Vector3::zeros(), 0.0); 8];
-            let mut cube_index = 0;
+    {
+        let mut grid = [(Vector3::zeros(), 0.0); 8];
+        let mut cube_index = 0;
 
-            for (i, offset) in GRID_POINTS.iter().enumerate() {
-                let pos = Vector3::new(x, y, z) + offset;
+        for (i, offset) in GRID_POINTS.iter().enumerate() {
+            let pos = Vector3::new(x, y, z) + offset;
 
-                let index = pos.x * size.y * size.z + pos.y * size.z + pos.z;
-                let value = scalar_field[index];
+            let index = pos.x * size.y * size.z + pos.y * size.z + pos.z;
+            let value = scalar_field[index];
 
-                grid[i] = (pos.map(|x| x as f32), value);
-                cube_index |= ((value < iso_level) as usize) << i;
-            }
+            grid[i] = (pos.map(|x| x as f32), value);
+            cube_index |= ((value < iso_level) as usize) << i;
+        }
 
-            let edge = EDGE_TABLE[cube_index];
-            let mut vertlist = [Vector3::zeros(); 12];
-            for (i, &(p1, p2)) in EDGE_CONNECTIONS
-                .iter()
-                .enumerate()
-                .filter(|(i, _)| edge & (1 << i) != 0)
-            {
-                vertlist[i] = vertex_interp(iso_level, grid[p1], grid[p2]);
-            }
+        let edge = EDGE_TABLE[cube_index];
+        let mut vertlist = [Vector3::zeros(); 12];
+        for (i, &(p1, p2)) in EDGE_CONNECTIONS
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| edge & (1 << i) != 0)
+        {
+            vertlist[i] = vertex_interp(iso_level, grid[p1], grid[p2]);
+        }
 
-            let triangles = TRIANGULATION_TABLE[cube_index];
-            triangles
-                .chunks(3)
-                .flat_map(|triangle| {
-                    triangle.iter().map(|&vert| {
-                        Vertex::new(vertlist[vert as usize].push(1.0), Vector2::zeros())
-                    })
-                })
-                .collect::<Vec<_>>()
-        })
-        .collect::<Vec<_>>();
+        let triangles = TRIANGULATION_TABLE[cube_index];
+        for triangle in triangles.chunks(3) {
+            let normal = (vertlist[triangle[1] as usize] - vertlist[triangle[0] as usize])
+                .cross(&(vertlist[triangle[2] as usize] - vertlist[triangle[0] as usize]))
+                .normalize();
 
-    let indicies = (0..vertices.len() as u32).collect();
-    (vertices, indicies)
+            let get_point_idx = |vert: u8| {
+                let point = vertlist[vert as usize];
+                let orderd = point.map(OrderedFloat);
+                if let Some(&idx) = vertex_lookup.get(&orderd) {
+                    vertices[idx as usize].normal += normal;
+                    return idx;
+                }
+
+                let idx = vertices.len() as u32;
+                vertices.push(Vertex::new(point.push(1.0), normal));
+                vertex_lookup.insert(orderd, idx);
+                idx
+            };
+
+            let points = triangle.iter().copied().map(get_point_idx);
+            indices.extend(points);
+        }
+    }
+
+    vertices
+        .iter_mut()
+        .for_each(|v| v.normal = v.normal.normalize());
+
+    (vertices, indices)
 }
 
 fn vertex_interp(
