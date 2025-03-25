@@ -32,7 +32,7 @@ fn main() -> Result<()> {
         config,
     };
 
-    (0..50).for_each(|_| simulation.tick());
+    (0..100).for_each(|_| simulation.tick());
     let state = gpu.create_storage(&simulation.states[simulation.step % 3])?;
 
     let uniforms = gpu.create_uniform(&Uniform::default())?;
