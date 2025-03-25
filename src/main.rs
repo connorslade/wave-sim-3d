@@ -55,8 +55,11 @@ fn main() -> Result<()> {
             indicies: 0,
             simulation,
             camera: Camera::default(),
-            iso_level: 0.5,
+            iso_level: 0.4,
             render_config: RenderConfig::default(),
+
+            scheduled_remesh: false,
+            use_iso_level: true,
         },
     )
     .run()?;

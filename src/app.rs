@@ -1,3 +1,5 @@
+use std::mem;
+
 use compute::{
     bindings::{IndexBuffer, UniformBuffer, VertexBuffer},
     export::{
@@ -26,8 +28,11 @@ pub struct App {
 
     pub simulation: Simulation,
     pub camera: Camera,
+    pub use_iso_level: bool,
     pub iso_level: f32,
     pub render_config: RenderConfig,
+
+    pub scheduled_remesh: bool,
 }
 
 #[derive(ShaderType, Clone, Copy)]
@@ -70,20 +75,20 @@ impl Interactive for App {
 
                     reset.then(|| self.simulation.reset());
                     tick.then(|| self.simulation.tick());
-                    if tick || remesh || reset {
-                        let (vertices, indices) = self.simulation.triangluate(self.iso_level);
-                        self.indicies = indices.len() as u32;
-                        self.vertex.upload(&vertices).unwrap();
-                        self.index.upload(&indices).unwrap();
-                    }
+                    self.scheduled_remesh |= tick || remesh || reset;
                 });
 
                 ui.add_space(8.0);
                 ui.heading("Rendering");
+                let (prev_use_iso_level, prev_iso_level) = (self.use_iso_level, self.iso_level);
                 ui.horizontal(|ui| {
+                    ui.checkbox(&mut self.use_iso_level, "");
                     SciDragValue::new(&mut self.iso_level).show(ui);
                     ui.label("Iso Level");
                 });
+                self.scheduled_remesh |=
+                    prev_use_iso_level != self.use_iso_level || prev_iso_level != self.iso_level;
+
                 ui.horizontal(|ui| {
                     ui.add(Slider::new(&mut self.render_config.ambiant, 0.0..=1.0));
                     ui.label("Ambiant");
@@ -114,9 +119,16 @@ impl Interactive for App {
     }
 
     fn render(&mut self, gcx: GraphicsCtx, render_pass: &mut RenderPass) {
+        if mem::take(&mut self.scheduled_remesh) {
+            let iso_level = self.use_iso_level.then_some(self.iso_level);
+            let (vertices, indices) = self.simulation.triangluate(iso_level.unwrap_or_default());
+            self.indicies = indices.len() as u32;
+            self.vertex.upload(&vertices).unwrap();
+            self.index.upload(&indices).unwrap();
+        }
+
         let window = gcx.window.inner_size().cast::<f32>();
         let aspect = window.width / window.height;
-
         self.uniform
             .upload(&Uniform {
                 view_projection: self.camera.view_projection(aspect),

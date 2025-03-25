@@ -17,6 +17,7 @@ pub struct Camera {
 
 impl Camera {
     pub fn update(&mut self, ctx: &Context) {
+        let dragging_ui = ctx.drag_started_id().is_some() || ctx.dragged_id().is_some();
         ctx.input(|input| {
             let facing = self.facing();
             let forward = Vector3::new(facing.x, 0.0, facing.z).normalize();
@@ -37,7 +38,7 @@ impl Camera {
 
             self.position += delta.try_normalize(0.0).unwrap_or_default() * 10.0 * input.stable_dt;
 
-            if input.pointer.button_down(PointerButton::Primary) {
+            if input.pointer.button_down(PointerButton::Primary) && !dragging_ui {
                 let mouse = -input.pointer.delta() * 0.01;
                 self.pitch += mouse.y;
                 self.yaw += mouse.x;
