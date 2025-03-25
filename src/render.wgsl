@@ -9,7 +9,7 @@ struct VertexOutput {
 };
 
 struct Uniform {
-    size: vec3u,
+    size: vec3<u32>,
     camera: Camera,
 
     ambiant: f32,
@@ -42,31 +42,30 @@ fn frag(in: VertexOutput) -> @location(0) vec4f {
 
     var accumulate = 0.0;
     var last = 0.0;
-    for (var i = 0u; i < 100; i++) {
+    for (var i = 0u; i < 1000; i++) {
         pos += dir * 0.1;
-        // if (pos.x < 0.0 || pos.x >= f32(ctx.size.x) || pos.y < 0.0 || pos.y >= f32(ctx.size.y) || pos.z < 0.0 || pos.z >= f32(ctx.size.z)) {
-        //     break;
-        // }
 
-        let val = state[u32(pos.x * f32(ctx.size.y * ctx.size.z) + pos.y * f32(ctx.size.z) + pos.z)];
-        if val > 0.0 {
-            return vec4(1.0);
-        }
-
-        // if sign(val) != sign(last) {
-        //     accumulate += (1.0 / 100.0);
-        // }
-
-        // last = val;
+        let val = get_voxel_interp(pos);
+        if abs(val) > 0.1 { accumulate += 0.01; }
     }
 
-    return vec4(vec3(0.0), 1.0);
+    return vec4(vec3(saturate(accumulate)), 1.0);
+}
+
+fn get_voxel_interp(pos: vec3f) -> f32 {
+    if pos.x < 0.0 || pos.y < 0.0 || pos.z < 0.0 { return 0.0; }
+    return get_voxel(vec3u(pos));
+}
+
+fn get_voxel(pos: vec3u) -> f32 {
+    if pos.x >= ctx.size.x || pos.y >= ctx.size.y || pos.z >= ctx.size.z { return 0.0; }
+    return state[pos.x * ctx.size.y * ctx.size.z + pos.y * ctx.size.z + pos.z];
 }
 
 fn ray_direction(pos: vec2f) -> vec3f {
     let forward = camera_direction();
-    let right = normalize(cross(vec3f(0, 1, 0), forward));
-    let up = normalize(cross(forward, right));
+    let right = -normalize(cross(vec3f(0, 1, 0), forward));
+    let up = normalize(cross(forward, -right));
 
     let fov_scale = tan(ctx.camera.fov * 0.5);
     let uv = pos * vec2(ctx.camera.aspect, 1.0) * fov_scale;

@@ -49,9 +49,9 @@ impl Camera {
 
     pub fn facing(&self) -> Vector3<f32> {
         Vector3::new(
-            self.pitch.cos() * self.yaw.sin(),
-            self.pitch.sin(),
             self.pitch.cos() * self.yaw.cos(),
+            self.pitch.sin(),
+            self.pitch.cos() * self.yaw.sin(),
         )
     }
 }
