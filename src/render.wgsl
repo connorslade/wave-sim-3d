@@ -37,44 +37,42 @@ fn vert(in: VertexInput) -> VertexOutput {
 
 @fragment
 fn frag(in: VertexOutput) -> @location(0) vec4f {
+    let pixel = in.uv.y * f32(ctx.size.x) + in.uv.x;
+    seed = u32(pixel);
+
     let camera_dir = camera_direction();
-    let dir = ray_direction(camera_dir, in.uv) * 0.5;
+    let dir = ray_direction(camera_dir, in.uv);
     var pos = ctx.camera.pos;
 
     var accumulate = 0.0;
-    var last = 0.0;
-    let seen = false;
+    var last_sign = true;
     for (var i = 0u; i < 100; i++) {
         pos += dir;
 
-        let val = get_voxel_smooth(pos);
-        if val.normal.x == 0.0 {
-            if seen { break; }
-            else { continue; }
-        }
+        var val = get_voxel_smooth(pos);
+        let current_sign = val < 0.1;
 
-        if (last < 0.1) != (val.value < 0.1) {
-            let opacity = abs(dot(val.normal, camera_dir));
+        if last_sign != current_sign {
+            last_sign = current_sign;
+
+            let dx = get_voxel_smooth(pos + vec3f(0.01, 0, 0)) - val;
+            let dy = get_voxel_smooth(pos + vec3f(0, 0.01, 0)) - val;
+            let dz = get_voxel_smooth(pos + vec3f(0, 0, 0.01)) - val;
+            let normal = -normalize(vec3f(dx, dy, dz));
+
+            let opacity = abs(dot(normal, camera_dir));
             accumulate += ctx.ambiant + ctx.intensity * (1.0 - pow(opacity, ctx.edge_falloff));
         }
-        last = val.value;
     }
 
     return vec4(vec3(saturate(accumulate)), 1.0);
 }
 
-struct VoxelLookupResult {
-    value: f32,
-    normal: vec3f
-}
-
-fn get_voxel_smooth(pos: vec3f) -> VoxelLookupResult {
-    if pos.x < 0.0 || pos.y < 0.0 || pos.z < 0.0 {
-        return VoxelLookupResult(0.0, vec3f(0, 0, 0));
-    }
+fn get_voxel_smooth(pos: vec3f) -> f32 {
+    if pos.x < 0.0 || pos.y < 0.0 || pos.z < 0.0 { return 0.0; }
 
     let p0 = vec3u(floor(pos));
-    let p1 = p0 + vec3u(1, 1, 1);
+    let p1 = p0 + vec3u(1);
 
     let d000 = get_voxel(p0);
     let d100 = get_voxel(vec3u(p1.x, p0.y, p0.z));
@@ -95,14 +93,12 @@ fn get_voxel_smooth(pos: vec3f) -> VoxelLookupResult {
     let d0 = mix(d00, d10, frac.y);
     let d1 = mix(d01, d11, frac.y);
 
-    let value = mix(d0, d1, frac.z);
+    return mix(d0, d1, frac.z);
+}
 
-    let dx = d100 - d000;
-    let dy = d010 - d000;
-    let dz = d001 - d000;
-    let normal = normalize(vec3f(dx, dy, dz));
-
-    return VoxelLookupResult(value, normal);
+fn get_voxel_rough(pos: vec3f) -> f32 {
+    if pos.x < 0.0 || pos.y < 0.0 || pos.z < 0.0 { return 0.0; }
+    return get_voxel(vec3u(floor(pos)));
 }
 
 fn get_voxel(pos: vec3u) -> f32 {
@@ -129,4 +125,12 @@ fn camera_direction() -> vec3f {
         sin(pitch),
         sin(yaw) * cos(pitch)
     ));
+}
+
+var<private> seed: u32 = 0u;
+
+fn rand() -> f32 {
+    seed = seed * 747796405u + 2891336453u;
+    let f = f32(seed >> 9u) / f32(1u << 23u);
+    return fract(f);
 }
