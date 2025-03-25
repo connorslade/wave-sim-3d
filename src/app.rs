@@ -33,6 +33,7 @@ pub struct App {
     pub render_config: RenderConfig,
 
     pub scheduled_remesh: bool,
+    pub energy: bool,
 }
 
 #[derive(ShaderType, Clone, Copy)]
@@ -64,6 +65,9 @@ impl Interactive for App {
                 sci_dragger(ui, "dx (m)", &mut self.simulation.config.dx);
                 sci_dragger(ui, "dt (s)", &mut self.simulation.config.dt);
                 sci_dragger(ui, "Wave Speed (m/s)", &mut self.simulation.config.v);
+                let prev_energy = self.energy;
+                ui.checkbox(&mut self.energy, "Wave Energy");
+                self.scheduled_remesh |= prev_energy != self.energy;
 
                 ui.add_space(8.0);
                 ui.horizontal(|ui| {
@@ -121,7 +125,14 @@ impl Interactive for App {
     fn render(&mut self, gcx: GraphicsCtx, render_pass: &mut RenderPass) {
         if mem::take(&mut self.scheduled_remesh) {
             let iso_level = self.use_iso_level.then_some(self.iso_level);
-            let (vertices, indices) = self.simulation.triangluate(iso_level.unwrap_or_default());
+            let iso_level = iso_level.unwrap_or_default();
+
+            let (vertices, indices) = if self.energy {
+                self.simulation.triangluate_energy(iso_level)
+            } else {
+                self.simulation.triangluate(iso_level)
+            };
+
             self.indicies = indices.len() as u32;
             self.vertex.upload(&vertices).unwrap();
             self.index.upload(&indices).unwrap();

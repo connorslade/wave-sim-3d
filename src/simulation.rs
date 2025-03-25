@@ -5,6 +5,7 @@ use crate::{marching_cubes, vertex::Vertex};
 
 pub struct Simulation {
     pub states: Vec<Vec<f32>>,
+    pub energy: Vec<f32>,
     pub step: usize,
 
     pub config: Config,
@@ -43,7 +44,8 @@ impl Simulation {
         let get = |state: &[f32], pos: Vector3<usize>| index(pos).map(|i| state[i]).unwrap_or(0.0);
         let c = c.powi(2) * (self.config.dt / dx);
         let oscilator = (self.step as f32 / 10.0).cos();
-        let (prev, curr, next) = self.get_states();
+        let step = self.step;
+        let (prev, curr, next, energy) = self.get_states();
 
         for pos in (0..size.x)
             .cartesian_product(0..size.y)
@@ -72,6 +74,9 @@ impl Simulation {
                 u += (-center_dist).exp() * oscilator;
             }
 
+            let nd = step as f32 + 1.0;
+            energy[idx] = energy[idx] * (step as f32 / nd) + u.powi(2) / nd;
+
             next[idx] = u;
         }
 
@@ -82,13 +87,18 @@ impl Simulation {
         marching_cubes(&self.states[self.step % 3], self.config.size, iso_level)
     }
 
-    fn get_states(&mut self) -> (&[f32], &[f32], &mut [f32]) {
+    pub fn triangluate_energy(&self, iso_level: f32) -> (Vec<Vertex>, Vec<u32>) {
+        marching_cubes(&self.energy, self.config.size, iso_level)
+    }
+
+    fn get_states(&mut self) -> (&[f32], &[f32], &mut [f32], &mut [f32]) {
         unsafe {
             let next = &mut *(&mut self.states[(self.step + 1) % 3][..] as *mut _);
+            let energy = &mut *(&mut self.energy[..] as *mut _);
             let prev = &self.states[(self.step + 2) % 3];
             let current = &self.states[self.step % 3];
 
-            (prev, current, next)
+            (prev, current, next, energy)
         }
     }
 }

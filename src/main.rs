@@ -28,8 +28,10 @@ fn main() -> Result<()> {
         .build()?;
 
     let config = Config::default();
+    let cells = config.size.iter().product();
     let simulation = Simulation {
-        states: vec![vec![0.0; config.size.iter().product()]; 3],
+        states: vec![vec![0.0; cells]; 3],
+        energy: vec![0.0; cells],
         step: 0,
         config,
     };
@@ -60,6 +62,7 @@ fn main() -> Result<()> {
 
             scheduled_remesh: false,
             use_iso_level: true,
+            energy: false,
         },
     )
     .run()?;
