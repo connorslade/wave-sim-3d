@@ -1,39 +1,28 @@
 use std::mem;
 
 use compute::{
-    bindings::{IndexBuffer, UniformBuffer, VertexBuffer},
+    bindings::{IndexBuffer, StorageBuffer, UniformBuffer, VertexBuffer},
     export::{
         egui::{Context, Key, Slider, Window},
         nalgebra::{Matrix4, Vector3},
         wgpu::RenderPass,
     },
     interactive::{GraphicsCtx, Interactive},
+    misc::mutability::Mutable,
     pipeline::render::RenderPipeline,
 };
 use encase::ShaderType;
 
-use crate::{
-    camera::Camera,
-    simulation::Simulation,
-    ui::{dragger, sci_dragger, sci_dragger::SciDragValue, vec3_dragger},
-    vertex::Vertex,
-};
+use crate::{camera::Camera, simulation::Simulation};
 
 pub struct App {
     pub render: RenderPipeline,
-    pub index: IndexBuffer,
-    pub vertex: VertexBuffer<Vertex>,
+    pub state: StorageBuffer<Vec<f32>, Mutable>,
     pub uniform: UniformBuffer<Uniform>,
-    pub indicies: u32,
 
     pub simulation: Simulation,
     pub camera: Camera,
-    pub use_iso_level: bool,
-    pub iso_level: f32,
     pub render_config: RenderConfig,
-
-    pub scheduled_remesh: bool,
-    pub energy: bool,
 }
 
 #[derive(ShaderType, Clone, Copy)]
@@ -45,8 +34,8 @@ pub struct RenderConfig {
 
 #[derive(ShaderType, Default)]
 pub struct Uniform {
-    view_projection: Matrix4<f32>,
-    camera_dir: Vector3<f32>,
+    size: Vector3<u32>,
+    camera: Camera,
     render: RenderConfig,
 }
 
@@ -58,98 +47,82 @@ impl Interactive for App {
     fn ui(&mut self, _gcx: GraphicsCtx, ctx: &Context) {
         self.camera.update(ctx);
 
-        Window::new("Wave Simulator 3D")
-            .default_width(0.0)
-            .show(ctx, |ui| {
-                ui.heading("Simulation");
-                sci_dragger(ui, "dx (m)", &mut self.simulation.config.dx);
-                sci_dragger(ui, "dt (s)", &mut self.simulation.config.dt);
-                sci_dragger(ui, "Wave Speed (m/s)", &mut self.simulation.config.v);
-                let prev_energy = self.energy;
-                ui.checkbox(&mut self.energy, "Wave Energy");
-                self.scheduled_remesh |= prev_energy != self.energy;
+        // Window::new("Wave Simulator 3D")
+        //     .default_width(0.0)
+        //     .show(ctx, |ui| {
+        //         ui.heading("Simulation");
+        //         sci_dragger(ui, "dx (m)", &mut self.simulation.config.dx);
+        //         sci_dragger(ui, "dt (s)", &mut self.simulation.config.dt);
+        //         sci_dragger(ui, "Wave Speed (m/s)", &mut self.simulation.config.v);
+        //         let prev_energy = self.energy;
+        //         ui.checkbox(&mut self.energy, "Wave Energy");
+        //         self.scheduled_remesh |= prev_energy != self.energy;
 
-                ui.add_space(8.0);
-                ui.horizontal(|ui| {
-                    let t_down = ui.input(|input| input.key_down(Key::T));
+        //         ui.add_space(8.0);
+        //         ui.horizontal(|ui| {
+        //             let t_down = ui.input(|input| input.key_down(Key::T));
 
-                    let remesh = ui.button("Remesh").clicked();
-                    let tick = ui.button("Tick").clicked() || t_down;
-                    let reset = ui.button("Reset").clicked();
+        //             let remesh = ui.button("Remesh").clicked();
+        //             let tick = ui.button("Tick").clicked() || t_down;
+        //             let reset = ui.button("Reset").clicked();
 
-                    reset.then(|| self.simulation.reset());
-                    tick.then(|| self.simulation.tick());
-                    self.scheduled_remesh |= tick || remesh || reset;
-                });
+        //             reset.then(|| self.simulation.reset());
+        //             tick.then(|| self.simulation.tick());
+        //             self.scheduled_remesh |= tick || remesh || reset;
+        //         });
 
-                ui.add_space(8.0);
-                ui.heading("Rendering");
-                let (prev_use_iso_level, prev_iso_level) = (self.use_iso_level, self.iso_level);
-                ui.horizontal(|ui| {
-                    ui.checkbox(&mut self.use_iso_level, "");
-                    SciDragValue::new(&mut self.iso_level).show(ui);
-                    ui.label("Iso Level");
-                });
-                self.scheduled_remesh |=
-                    prev_use_iso_level != self.use_iso_level || prev_iso_level != self.iso_level;
+        //         ui.add_space(8.0);
+        //         ui.heading("Rendering");
+        //         let (prev_use_iso_level, prev_iso_level) = (self.use_iso_level, self.iso_level);
+        //         ui.horizontal(|ui| {
+        //             ui.checkbox(&mut self.use_iso_level, "");
+        //             SciDragValue::new(&mut self.iso_level).show(ui);
+        //             ui.label("Iso Level");
+        //         });
+        //         self.scheduled_remesh |=
+        //             prev_use_iso_level != self.use_iso_level || prev_iso_level != self.iso_level;
 
-                ui.horizontal(|ui| {
-                    ui.add(Slider::new(&mut self.render_config.ambiant, 0.0..=1.0));
-                    ui.label("Ambiant");
-                });
-                ui.horizontal(|ui| {
-                    ui.add(Slider::new(&mut self.render_config.intensity, 0.0..=1.0));
-                    ui.label("intensity");
-                });
-                ui.horizontal(|ui| {
-                    ui.add(Slider::new(&mut self.render_config.edge_falloff, 0.0..=1.0));
-                    ui.label("Edge Falloff");
-                });
+        //         ui.horizontal(|ui| {
+        //             ui.add(Slider::new(&mut self.render_config.ambiant, 0.0..=1.0));
+        //             ui.label("Ambiant");
+        //         });
+        //         ui.horizontal(|ui| {
+        //             ui.add(Slider::new(&mut self.render_config.intensity, 0.0..=1.0));
+        //             ui.label("intensity");
+        //         });
+        //         ui.horizontal(|ui| {
+        //             ui.add(Slider::new(&mut self.render_config.edge_falloff, 0.0..=1.0));
+        //             ui.label("Edge Falloff");
+        //         });
 
-                ui.add_space(8.0);
-                ui.collapsing("Camera", |ui| {
-                    ui.horizontal(|ui| {
-                        ui.label("Position");
-                        vec3_dragger(ui, &mut self.camera.position, |x| x.speed(0.1));
-                    });
-                    dragger(ui, "Pitch", &mut self.camera.pitch, |x| x.speed(0.1));
-                    dragger(ui, "Yaw", &mut self.camera.yaw, |x| x.speed(0.1));
-                    ui.separator();
-                    dragger(ui, "Fov", &mut self.camera.fov, |x| x.speed(0.1));
-                    dragger(ui, "Near", &mut self.camera.near, |x| x.speed(0.1));
-                    dragger(ui, "Far", &mut self.camera.far, |x| x.speed(0.1));
-                });
-            });
+        //         ui.add_space(8.0);
+        //         ui.collapsing("Camera", |ui| {
+        //             ui.horizontal(|ui| {
+        //                 ui.label("Position");
+        //                 vec3_dragger(ui, &mut self.camera.position, |x| x.speed(0.1));
+        //             });
+        //             dragger(ui, "Pitch", &mut self.camera.pitch, |x| x.speed(0.1));
+        //             dragger(ui, "Yaw", &mut self.camera.yaw, |x| x.speed(0.1));
+        //             ui.separator();
+        //             dragger(ui, "Fov", &mut self.camera.fov, |x| x.speed(0.1));
+        //             dragger(ui, "Near", &mut self.camera.near, |x| x.speed(0.1));
+        //             dragger(ui, "Far", &mut self.camera.far, |x| x.speed(0.1));
+        //         });
+        //     });
     }
 
     fn render(&mut self, gcx: GraphicsCtx, render_pass: &mut RenderPass) {
-        if mem::take(&mut self.scheduled_remesh) {
-            let iso_level = self.use_iso_level.then_some(self.iso_level);
-            let iso_level = iso_level.unwrap_or_default();
-
-            let (vertices, indices) = if self.energy {
-                self.simulation.triangluate_energy(iso_level)
-            } else {
-                self.simulation.triangluate(iso_level)
-            };
-
-            self.indicies = indices.len() as u32;
-            self.vertex.upload(&vertices).unwrap();
-            self.index.upload(&indices).unwrap();
-        }
-
         let window = gcx.window.inner_size().cast::<f32>();
-        let aspect = window.width / window.height;
+        self.camera.aspect = window.width / window.height;
         self.uniform
             .upload(&Uniform {
-                view_projection: self.camera.view_projection(aspect),
-                camera_dir: self.camera.facing(),
+                size: self.simulation.config.size.map(|x| x as u32),
+                camera: self.camera,
                 render: self.render_config,
             })
             .unwrap();
 
-        self.render
-            .draw(render_pass, &self.index, &self.vertex, 0..self.indicies);
+        self.render.draw_quad(render_pass, 0..1);
     }
 }
 

@@ -9,15 +9,11 @@ use compute::{
 
 use app::{App, RenderConfig, Uniform};
 use camera::Camera;
-use marching_cubes::marching_cubes;
 use simulation::{Config, Simulation};
-use vertex::VERTEX_BUFFER_LAYOUT;
 mod app;
 mod camera;
-mod marching_cubes;
 mod simulation;
 mod ui;
-mod vertex;
 
 fn main() -> Result<()> {
     let gpu = Gpu::builder()
@@ -29,40 +25,34 @@ fn main() -> Result<()> {
 
     let config = Config::default();
     let cells = config.size.iter().product();
-    let simulation = Simulation {
+    let mut simulation = Simulation {
         states: vec![vec![0.0; cells]; 3],
         energy: vec![0.0; cells],
         step: 0,
         config,
     };
 
-    let index = gpu.create_index_empty(1_000_000);
-    let vertex = gpu.create_vertex_empty(1_000_000)?;
+    (0..50).for_each(|_| simulation.tick());
+    let state = gpu.create_storage(&simulation.states[simulation.step % 3])?;
+
     let uniforms = gpu.create_uniform(&Uniform::default())?;
     let render = gpu
         .render_pipeline(include_wgsl!("render.wgsl"))
-        .vertex_layout(VERTEX_BUFFER_LAYOUT)
         .depth_compare(CompareFunction::Always)
         .bind(&uniforms, ShaderStages::VERTEX_FRAGMENT)
+        .bind(&state, ShaderStages::FRAGMENT)
         .finish();
 
     gpu.create_window(
         WindowAttributes::default().with_title("Wave Simulator 3D"),
         App {
             render,
-            index,
-            vertex,
+            state,
             uniform: uniforms,
 
-            indicies: 0,
             simulation,
             camera: Camera::default(),
-            iso_level: 0.4,
             render_config: RenderConfig::default(),
-
-            scheduled_remesh: false,
-            use_iso_level: true,
-            energy: false,
         },
     )
     .run()?;

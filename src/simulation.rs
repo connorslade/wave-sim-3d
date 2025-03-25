@@ -1,8 +1,6 @@
 use compute::export::nalgebra::Vector3;
 use itertools::Itertools;
 
-use crate::{marching_cubes, vertex::Vertex};
-
 pub struct Simulation {
     pub states: Vec<Vec<f32>>,
     pub energy: Vec<f32>,
@@ -81,14 +79,6 @@ impl Simulation {
         }
 
         self.step += 1;
-    }
-
-    pub fn triangluate(&self, iso_level: f32) -> (Vec<Vertex>, Vec<u32>) {
-        marching_cubes(&self.states[self.step % 3], self.config.size, iso_level)
-    }
-
-    pub fn triangluate_energy(&self, iso_level: f32) -> (Vec<Vertex>, Vec<u32>) {
-        marching_cubes(&self.energy, self.config.size, iso_level)
     }
 
     fn get_states(&mut self) -> (&[f32], &[f32], &mut [f32], &mut [f32]) {

@@ -4,15 +4,16 @@ use compute::export::{
     egui::{Context, Key, PointerButton},
     nalgebra::{Matrix4, Point3, Vector3},
 };
+use encase::ShaderType;
 
+#[derive(ShaderType, Clone, Copy)]
 pub struct Camera {
     pub position: Vector3<f32>,
     pub pitch: f32,
     pub yaw: f32,
 
     pub fov: f32,
-    pub near: f32,
-    pub far: f32,
+    pub aspect: f32,
 }
 
 impl Camera {
@@ -53,16 +54,6 @@ impl Camera {
             self.pitch.cos() * self.yaw.cos(),
         )
     }
-
-    pub fn view_projection(&self, aspect: f32) -> Matrix4<f32> {
-        let facing = self.facing();
-        Matrix4::new_perspective(aspect, self.fov, self.near, self.far)
-            * Matrix4::look_at_rh(
-                &Point3::from(self.position),
-                &Point3::from(self.position + facing),
-                &Vector3::new(0.0, 1.0, 0.0),
-            )
-    }
 }
 
 impl Default for Camera {
@@ -73,8 +64,7 @@ impl Default for Camera {
             yaw: 0.0,
 
             fov: FRAC_PI_2,
-            near: 0.1,
-            far: 10_000.0,
+            aspect: 0.0,
         }
     }
 }
