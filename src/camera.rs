@@ -2,7 +2,7 @@ use std::f32::consts::FRAC_PI_2;
 
 use compute::export::{
     egui::{Context, Key, PointerButton},
-    nalgebra::{Matrix4, Point3, Vector3},
+    nalgebra::Vector3,
 };
 use encase::ShaderType;
 

@@ -1,14 +1,7 @@
-use std::mem;
-
 use compute::{
-    bindings::{IndexBuffer, StorageBuffer, UniformBuffer, VertexBuffer},
-    export::{
-        egui::{Context, Key, Slider, Window},
-        nalgebra::{Matrix4, Vector3},
-        wgpu::RenderPass,
-    },
+    bindings::UniformBuffer,
+    export::{egui::Context, nalgebra::Vector3, wgpu::RenderPass},
     interactive::{GraphicsCtx, Interactive},
-    misc::mutability::Mutable,
     pipeline::render::RenderPipeline,
 };
 use encase::ShaderType;
@@ -17,7 +10,6 @@ use crate::{camera::Camera, simulation::Simulation};
 
 pub struct App {
     pub render: RenderPipeline,
-    pub state: StorageBuffer<Vec<f32>, Mutable>,
     pub uniform: UniformBuffer<Uniform>,
 
     pub simulation: Simulation,
@@ -35,6 +27,7 @@ pub struct RenderConfig {
 #[derive(ShaderType, Default)]
 pub struct Uniform {
     size: Vector3<u32>,
+    step: u32,
     camera: Camera,
     render: RenderConfig,
 }
@@ -117,6 +110,7 @@ impl Interactive for App {
         self.uniform
             .upload(&Uniform {
                 size: self.simulation.config.size.map(|x| x as u32),
+                step: self.simulation.config.step,
                 camera: self.camera,
                 render: self.render_config,
             })

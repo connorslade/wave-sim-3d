@@ -10,6 +10,7 @@ struct VertexOutput {
 
 struct Uniform {
     size: vec3<u32>,
+    step: u32,
     camera: Camera,
 
     ambiant: f32,
@@ -103,7 +104,8 @@ fn get_voxel_rough(pos: vec3f) -> f32 {
 
 fn get_voxel(pos: vec3u) -> f32 {
     if pos.x >= ctx.size.x || pos.y >= ctx.size.y || pos.z >= ctx.size.z { return 0.0; }
-    return state[pos.x * ctx.size.y * ctx.size.z + pos.y * ctx.size.z + pos.z];
+    let step_offset = (ctx.step % 3) * ctx.size.x * ctx.size.y * ctx.size.z;
+    return state[pos.x * ctx.size.y * ctx.size.z + pos.y * ctx.size.z + pos.z + step_offset];
 }
 
 fn ray_direction(forward: vec3f, pos: vec2f) -> vec3f {
