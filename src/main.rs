@@ -23,24 +23,19 @@ fn main() -> Result<()> {
     let gpu = Gpu::builder()
         .with_limits(Limits {
             max_buffer_size: 2147483647,
+            max_compute_invocations_per_workgroup: 512,
             ..Default::default()
         })
         .build()?;
 
     let config = Config::default();
-    let cells = config.size.iter().product();
-    let simulation = Simulation {
-        states: vec![vec![0.0; cells]; 3],
-        energy: vec![0.0; cells],
-        step: 0,
-        config,
-    };
+    let simulation = Simulation::new(&gpu, config)?;
 
     let index = gpu.create_index_empty(1_000_000);
     let vertex = gpu.create_vertex_empty(1_000_000)?;
     let uniforms = gpu.create_uniform(&Uniform::default())?;
     let render = gpu
-        .render_pipeline(include_wgsl!("render.wgsl"))
+        .render_pipeline(include_wgsl!("shaders/render.wgsl"))
         .vertex_layout(VERTEX_BUFFER_LAYOUT)
         .depth_compare(CompareFunction::Always)
         .bind(&uniforms, ShaderStages::VERTEX_FRAGMENT)

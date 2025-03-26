@@ -1,105 +1,89 @@
-use compute::export::nalgebra::Vector3;
-use itertools::Itertools;
+use anyhow::{Ok, Result};
+use compute::{
+    bindings::{MappedStorageBuffer, UniformBuffer},
+    export::{nalgebra::Vector3, wgpu::include_wgsl},
+    gpu::Gpu,
+    misc::mutability::Mutable,
+    pipeline::compute::ComputePipeline,
+};
+use encase::ShaderType;
 
 use crate::{marching_cubes, vertex::Vertex};
 
+const WORKGROUP_SIZE: Vector3<u32> = Vector3::new(8, 8, 8);
+
 pub struct Simulation {
-    pub states: Vec<Vec<f32>>,
-    pub energy: Vec<f32>,
-    pub step: usize,
+    pub pipeline: ComputePipeline,
+
+    pub states: MappedStorageBuffer<Mutable>,
+    pub energy: MappedStorageBuffer<Mutable>,
+    pub uniform: UniformBuffer<Config>,
 
     pub config: Config,
 }
 
+#[derive(ShaderType)]
 pub struct Config {
-    pub size: Vector3<usize>,
+    pub size: Vector3<u32>,
     pub v: f32,
     pub dx: f32,
     pub dt: f32,
+
+    pub step: u32,
 }
 
 impl Simulation {
-    pub fn reset(&mut self) {
-        self.states = vec![vec![0.0; self.config.size.iter().product()]; 3];
-        self.step = 0;
+    pub fn new(gpu: &Gpu, config: Config) -> Result<Self> {
+        let cells = config.size.iter().product::<u32>() as u64;
+        let states = gpu.create_mapped_storage(cells * 4 * 3)?;
+        let energy = gpu.create_mapped_storage(cells * 4)?;
+        let uniform = gpu.create_uniform(&config)?;
+
+        let pipeline = gpu
+            .compute_pipeline(include_wgsl!("shaders/compute.wgsl"))
+            .bind(&uniform)
+            .bind(&states)
+            .finish();
+
+        Ok(Self {
+            pipeline,
+            states,
+            energy,
+            uniform,
+            config,
+        })
     }
 
-    /// ```plain
-    /// ∂²u        ∂²u   ∂²u   ∂²u
-    /// --- = c² ( --- + --- + --- )
-    /// ∂t²        ∂x²   ∂y²   ∂z²
-    /// ```
+    pub fn reset(&mut self) {
+        self.config.step = 0;
+        self.uniform.upload(&self.config).unwrap();
+
+        self.states.as_mut_slice(..).fill(0);
+        self.energy.as_mut_slice(..).fill(0);
+    }
+
     pub fn tick(&mut self) {
-        let size = self.config.size;
-        let dx = self.config.dx.powi(3);
-        let c = self.config.v;
+        self.config.step += 1;
 
-        let (x, y, z) = (Vector3::x(), Vector3::y(), Vector3::z());
-
-        let index = |pos: Vector3<usize>| {
-            (pos.x < size.x && pos.y < size.y && pos.z < size.z)
-                .then(|| pos.x * size.y * size.z + pos.y * size.z + pos.z)
-        };
-
-        let get = |state: &[f32], pos: Vector3<usize>| index(pos).map(|i| state[i]).unwrap_or(0.0);
-        let c = c.powi(2) * (self.config.dt / dx);
-        let oscilator = (self.step as f32 / 10.0).cos();
-        let step = self.step;
-        let (prev, curr, next, energy) = self.get_states();
-
-        for pos in (0..size.x)
-            .cartesian_product(0..size.y)
-            .cartesian_product(0..size.z)
-            .map(|((x, y), z)| Vector3::new(x, y, z))
-        {
-            let idx = index(pos).unwrap();
-
-            let dx = get(curr, pos + x) + get(curr, pos - x);
-            let dy = get(curr, pos + y) + get(curr, pos - y);
-            let dz = get(curr, pos + z) + get(curr, pos - z);
-            let ds = dx + dy + dz - 6.0 * get(curr, pos);
-            let mut u = ds * c - prev[idx] + 2.0 * get(curr, pos);
-
-            {
-                let center_dist = (Vector3::new(size.x / 2 + 15, size.y / 2, size.z / 2) - pos)
-                    .map(|x| x as f32)
-                    .magnitude();
-                u += (-center_dist).exp() * oscilator;
-            }
-
-            {
-                let center_dist = (Vector3::new(size.x / 2 - 15, size.y / 2, size.z / 2) - pos)
-                    .map(|x| x as f32)
-                    .magnitude();
-                u += (-center_dist).exp() * oscilator;
-            }
-
-            let nd = step as f32 + 1.0;
-            energy[idx] = energy[idx] * (step as f32 / nd) + u.powi(2) / nd;
-
-            next[idx] = u;
-        }
-
-        self.step += 1;
+        self.uniform.upload(&self.config).unwrap();
+        self.pipeline
+            .dispatch(self.config.size.component_div(&WORKGROUP_SIZE));
     }
 
     pub fn triangluate(&self, iso_level: f32) -> (Vec<Vertex>, Vec<u32>) {
-        marching_cubes(&self.states[self.step % 3], self.config.size, iso_level)
+        let cells = self.config.size.iter().product::<u32>() as u64;
+        let step = (self.config.step % 3) as u64;
+        let range = (step * cells)..(((step + 1) % 3) * cells);
+
+        let state = self.states.as_mut_slice(range);
+        let state = bytemuck::cast_slice(&state);
+        marching_cubes(&state, self.config.size.map(|x| x as usize), iso_level)
     }
 
     pub fn triangluate_energy(&self, iso_level: f32) -> (Vec<Vertex>, Vec<u32>) {
-        marching_cubes(&self.energy, self.config.size, iso_level)
-    }
-
-    fn get_states(&mut self) -> (&[f32], &[f32], &mut [f32], &mut [f32]) {
-        unsafe {
-            let next = &mut *(&mut self.states[(self.step + 1) % 3][..] as *mut _);
-            let energy = &mut *(&mut self.energy[..] as *mut _);
-            let prev = &self.states[(self.step + 2) % 3];
-            let current = &self.states[self.step % 3];
-
-            (prev, current, next, energy)
-        }
+        let energy = self.energy.as_mut_slice(..);
+        let energy = bytemuck::cast_slice(&energy);
+        marching_cubes(&energy, self.config.size.map(|x| x as usize), iso_level)
     }
 }
 
@@ -110,6 +94,7 @@ impl Default for Config {
             v: 1.0,
             dx: 0.1,
             dt: 0.00001,
+            step: 0,
         }
     }
 }
