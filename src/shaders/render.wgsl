@@ -62,7 +62,7 @@ fn frag(in: VertexOutput) -> @location(0) vec4f {
             let normal = -normalize(vec3f(dx, dy, dz));
 
             let opacity = abs(dot(normal, camera_dir));
-            accumulate += ctx.ambiant + ctx.intensity * (1.0 - pow(opacity, ctx.edge_falloff));
+            accumulate += ctx.ambiant;// + ctx.intensity * (1.0 - pow(opacity, ctx.edge_falloff));
         }
     }
 

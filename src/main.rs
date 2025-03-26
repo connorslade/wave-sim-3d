@@ -27,7 +27,8 @@ fn main() -> Result<()> {
     let config = Config::default();
 
     let mut simulation = Simulation::new(&gpu, config)?;
-    (0..100).for_each(|_| simulation.tick());
+    simulation.tick();
+    // (0..100).for_each(|_| simulation.tick());
 
     let uniforms = gpu.create_uniform(&Uniform::default())?;
     let render = gpu

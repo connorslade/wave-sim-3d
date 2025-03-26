@@ -1,6 +1,10 @@
 use compute::{
     bindings::UniformBuffer,
-    export::{egui::Context, nalgebra::Vector3, wgpu::RenderPass},
+    export::{
+        egui::{Context, Key},
+        nalgebra::Vector3,
+        wgpu::RenderPass,
+    },
     interactive::{GraphicsCtx, Interactive},
     pipeline::render::RenderPipeline,
 };
@@ -39,6 +43,11 @@ impl Interactive for App {
 
     fn ui(&mut self, _gcx: GraphicsCtx, ctx: &Context) {
         self.camera.update(ctx);
+
+        let t_down = ctx.input(|input| input.key_down(Key::T));
+        if t_down {
+            self.simulation.tick();
+        }
 
         // Window::new("Wave Simulator 3D")
         //     .default_width(0.0)
