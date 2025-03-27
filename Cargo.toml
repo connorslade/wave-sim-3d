@@ -4,10 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-compute = { path = "../compute", features = ["interactive"] }
-# compute = { git = "https://github.com/connorslade/compute", features = [
-#     "interactive",
-# ] }
+# compute = { path = "../compute", features = ["interactive"] }
+compute = { git = "https://github.com/connorslade/compute", features = [
+    "interactive",
+] }
 
 anyhow = "1.0.95"
 encase = { version = "0.10.0", features = ["nalgebra"] }

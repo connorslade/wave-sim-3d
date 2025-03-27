@@ -35,8 +35,15 @@ fn main(@builtin(global_invocation_id) pos: vec3u) {
     let ds = dx + dy + dz - 6.0 * map[index(pos, curr)];
     var u = ds * c - map[index(pos, prev)] + 2.0 * map[index(pos, curr)];
 
-    let center_dist = length(vec3f(f32(ctx.size.x) / 2.0 + 15.0, f32(ctx.size.y) / 2.0, f32(ctx.size.z) / 2.0) - vec3f(pos));
-    u += exp(-center_dist) * cos(f32(ctx.step) * 0.1);
+    {
+        let center_dist = length(vec3f(f32(ctx.size.x) / 2.0 + 15.0, f32(ctx.size.y) / 2.0, f32(ctx.size.z) / 2.0) - vec3f(pos));
+        u += exp(-center_dist) * cos(f32(ctx.step) * 0.1);
+    }
+
+    {
+        let center_dist = length(vec3f(f32(ctx.size.x) / 2.0 - 15.0, f32(ctx.size.y) / 2.0, f32(ctx.size.z) / 2.0) - vec3f(pos));
+        u += exp(-center_dist) * cos(f32(ctx.step) * 0.1);
+    }
 
     map[index(pos, next)] = u;
 }
